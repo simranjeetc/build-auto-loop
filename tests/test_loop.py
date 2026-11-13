@@ -138,6 +138,13 @@ class LoopTest(unittest.TestCase):
         self.assertEqual(self.run_loop(), 1, self.out)
         self.assertIn("stray.txt", self.out)
 
+    def test_invalid_yaml_reported_cleanly(self):
+        (self.repo / "specs/f/stories.yaml").write_text(STORIES + "- id: s2\n  description: prints usage: x\n")
+        self.git("commit", "-qam", "bad yaml")
+        self.assertEqual(self.run_loop("--status"), 1, self.out)
+        self.assertIn("not valid YAML", self.out)
+        self.assertNotIn("Traceback", self.out)
+
     def test_custom_skill_prefix(self):
         self.assertEqual(self.run_loop("--dry-run", SKILL="Use the bmad-build-auto skill."), 0, self.out)
         self.assertIn("Use the bmad-build-auto skill. spec folder: specs/f", self.out)

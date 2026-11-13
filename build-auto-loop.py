@@ -107,7 +107,11 @@ class Story:
 
 
 def load_stories(spec_folder: Path) -> list[Story]:
-    data = yaml.safe_load((spec_folder / "stories.yaml").read_text()) or []
+    try:
+        data = yaml.safe_load((spec_folder / "stories.yaml").read_text()) or []
+    except yaml.YAMLError as e:
+        raise Stop(EXIT_ERR, f"{spec_folder}/stories.yaml is not valid YAML "
+                             f"(quote values that contain ': '):\n{e}") from None
     if isinstance(data, dict):
         data = data.get("stories", [])
     return [Story(id=str(s["id"]), title=s.get("title") or "", description=s.get("description") or "",

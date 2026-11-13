@@ -95,6 +95,30 @@ Each variable is a shell-quoted command; the prompt is appended as the last argu
 A verifier from a different model family than the implementer catches more: the failure modes
 are less correlated.
 
+## Review on another model
+
+`bmad-build-auto` reviews its own diff with four layers before it commits. By default each layer
+is a subagent on the implementing model. Override a layer in the target repo to run another CLI:
+
+```sh
+# from inside the target repo; name it bmad-build-auto.user.toml to keep it personal (gitignored)
+curl -fsSLo _bmad/custom/bmad-build-auto.toml \
+  https://raw.githubusercontent.com/simranjeetc/build-auto-loop/main/examples/bmad-build-auto.toml
+```
+
+[`examples/bmad-build-auto.toml`](examples/bmad-build-auto.toml) replaces the `blind-hunter`
+layer with `codex exec -s read-only`. Layers merge by `id`, so the other three keep their
+defaults. If codex is missing or fails, the layer falls back to the default subagent.
+
+| Question | Answer |
+|---|---|
+| Who triages the findings? | the implementing model (`step-04-review.md`); the reviewer only reports |
+| No override file? | all four layers run as subagents on the `IMPL_CMD` model |
+| Global override? | none; BMAD reads overrides per repo from `_bmad/custom/` |
+
+The layer runs only if the implementing model follows the instruction. The blind verifier
+(`VERIFY_CMD`) is the check the loop itself enforces.
+
 ## The verdict
 
 The verifier prints one row per check:
@@ -142,11 +166,10 @@ script commits nothing itself and never pushes; `bmad-build-auto` commits each s
 - **Other spec formats.** Today the only input is BMAD's `stories.yaml`. Planned: read the task
   lists from [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes and
   [Spec Kit](https://github.com/github/spec-kit) features as stories.
-- **`REVIEW_CMD`.** Today one `IMPL_CMD` run implements, reviews and commits inside
-  `bmad-build-auto`. Planned: move the review into its own phase, so a different model or harness
-  reviews the diff, and send its findings back to `IMPL_CMD` the same way FAIL rows go back.
-  Still open: whether the skill can stop before its own review, or the review runs after the
-  commit.
+- **Review outside BMAD.** A review layer can already run on another model (see
+  [Review on another model](#review-on-another-model)). A separate `REVIEW_CMD` phase is only
+  needed for spec formats without a BMAD review step, or to make the reviewer's run enforced by
+  the loop rather than by the implementing model.
 
 ## Tests
 
