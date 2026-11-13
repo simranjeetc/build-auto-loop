@@ -34,7 +34,9 @@ Env (commands are shell-quoted strings; the prompt is appended as the last arg):
                       use whatever your harness understands, e.g. 'Use the bmad-build-auto skill.')
 
 Verdict, computed here from the verifier's CHECK rows, not taken from it:
-  any after=FAIL -> FAIL;  no kind=new row, or a new row with before=PASS -> WEAK;  else PASS
+  any after=FAIL -> FAIL;  no kind=new row with before=FAIL -> WEAK;  else PASS
+  (a new row that already passes on the before-tree is noted, not fatal, when another new row
+  goes FAIL -> PASS)
 
 Exit codes: 0 finished or paused on a checkpoint; 1 error (agent or verifier did not
 run cleanly, dirty tree, WEAK checks); 2 blocked, stalled, or MAX_FAILS reached.
@@ -216,8 +218,7 @@ def parse_rows(text: str) -> list[Check]:
 def verdict_of(rows: list[Check]) -> str:
     if any(r.after == "FAIL" for r in rows):
         return "FAIL"
-    new = [r for r in rows if r.kind == "new"]
-    if not new or any(r.before == "PASS" for r in new):
+    if not any(r.kind == "new" and r.before == "FAIL" for r in rows):
         return "WEAK"
     return "PASS"
 
@@ -237,7 +238,8 @@ Do not open anything under {spec_folder}/stories/: that is the implementer's own
 3. Read git diff {base}..{head} and add checks only for risks it shows.
 4. Print one row per check, as a plain line with nothing before it, in this format:
    CHECK <short-id>: before=<PASS|FAIL> after=<PASS|FAIL> kind=<new|kept> cmd=<command> result=<what you saw>
-   A new check that already passes on the before-tree proves nothing; report it honestly."""
+   Report before-tree results honestly. At least one new check must fail on the before-tree;
+   a check that passes on both trees is behaviour that survives, so mark it kind=kept."""
 
 FIX_PROMPT = """{invoke}
 
@@ -338,6 +340,9 @@ class Loop:
         log(f"story {s.id}: verdict {v} ({len(rows)} checks, log {lf})")
         for r in rows:
             print(f"  {r.line}")
+        idle = sum(r.kind == "new" and r.before == "PASS" for r in rows)
+        if v == "PASS" and idle:
+            log(f"story {s.id}: {idle} new check(s) already pass on the before-tree; counted as kept")
         if v == "WEAK":
             raise Stop(EXIT_ERR, f"story {s.id}: checks do not fail on the before-tree, so they prove nothing; see {lf}")
         return v, rows

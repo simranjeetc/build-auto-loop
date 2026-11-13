@@ -5,21 +5,23 @@
 # Layers merge by id: this replaces only blind-hunter; the other three layers keep their defaults.
 # Without this file BMAD runs all four layers as subagents on the implementing model.
 # Triage and fixes stay with the implementing model; codex only reports findings.
-# To use another CLI, swap the command; keep it read-only and keep `< /dev/null`.
+# To use another CLI, swap the command; keep it read-only, keep `< /dev/null`, and send only its
+# final reply to the REPLY file (codex echoes the whole session otherwise, often 100KB+).
 
 [[workflow.review_layers]]
 id = "blind-hunter"
 name = "Blind Hunter (codex)"
 instruction = """
-1. Write {diff_output} to a new temporary file outside the repository. Call its absolute path DIFF.
+1. Write {diff_output} to a new temporary file outside the repository. Call its absolute path DIFF,
+   and call DIFF with .reply appended REPLY.
 
-2. Run this shell command with DIFF substituted, and wait for it to finish (it can take several minutes; give the shell tool a timeout of at least 600000 ms):
+2. Run this shell command with DIFF and REPLY substituted, and wait for it to finish (it can take several minutes; give the shell tool a timeout of at least 600000 ms):
 
-codex exec -s read-only --ephemeral --skip-git-repo-check "You are the Blind Hunter reviewer. Begin your reply with the line REVIEWER=codex. Conduct a review of the unified diff in the file DIFF; read that file, it is the content under review. Look for what is missing, not only what is wrong. Compute your finding floor N from the file size: N = min(floor(sqrt(kB) + 1), 10). State the arithmetic in one line, then find at least N issues to fix or improve. Output a Markdown list of findings only, with no severity or ranking. Do not modify any file." < /dev/null
+codex exec -s read-only --ephemeral --skip-git-repo-check -o REPLY "You are the Blind Hunter reviewer. Begin your reply with the line REVIEWER=codex. Conduct a review of the unified diff in the file DIFF; read that file, it is the content under review. Look for what is missing, not only what is wrong. Compute your finding floor N from the file size: N = min(floor(sqrt(kB) + 1), 10). State the arithmetic in one line, then find at least N issues to fix or improve. Output a Markdown list of findings only, with no severity or ranking. Do not modify any file." < /dev/null > /dev/null 2>&1
 
-3. If it exits 0 and its final reply begins with REVIEWER=codex, that reply is this layer's findings, exactly as printed. Stop here.
+3. If it exits 0 and the REPLY file begins with REVIEWER=codex, read REPLY: its contents are this layer's findings, exactly as written. Stop here.
 
-4. Otherwise (command not found, non-zero exit, or no REVIEWER=codex line), discard its output and launch a context-free subagent with the prompt below instead, and note "codex unavailable, fell back to subagent" in this layer's findings:
+4. Otherwise (command not found, non-zero exit, REPLY missing, or no REVIEWER=codex line), launch a context-free subagent with the prompt below instead, and note "codex unavailable, fell back to subagent" in this layer's findings:
 
 Conduct a review of CONTENT.
 Look for what's missing, not only what's wrong.

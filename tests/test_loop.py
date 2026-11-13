@@ -41,16 +41,19 @@ subprocess.run(["git", "add", "-A"], check=True)
 subprocess.run(["git", "commit", "-qm", "s1"], check=True)
 """
 
-# Fake verifier: FAKE_MODE=weak, else FAIL until call number FAKE_PASS_AT.
+# Fake verifier: FAKE_MODE=weak|mixed, else FAIL until call number FAKE_PASS_AT.
 FAKE_VERIFY = """\
 import os, sys
 from pathlib import Path
 c = Path(sys.argv[1]); n = int(c.read_text() or 0) + 1 if c.exists() else 1; c.write_text(str(n))
-if os.environ.get("FAKE_MODE") == "weak":
+mode = os.environ.get("FAKE_MODE")
+if mode in ("weak", "mixed"):
     print("CHECK s1: before=PASS after=PASS kind=new cmd=x result=y")
-elif n < int(os.environ.get("FAKE_PASS_AT", "1")):
+if mode == "mixed":
+    print("CHECK s2: before=FAIL after=PASS kind=new cmd=./greet.sh --shout Ana result=HELLO, ANA!")
+elif mode is None and n < int(os.environ.get("FAKE_PASS_AT", "1")):
     print("- `CHECK s1: before=FAIL after=FAIL kind=new cmd=./greet.sh --shout Ana result=hello`")
-else:
+elif mode is None:
     print("CHECK s1: before=FAIL after=PASS kind=new cmd=./greet.sh --shout Ana result=HELLO, ANA!")
 print("CHECK k1: before=PASS after=PASS kind=kept cmd=./greet.sh result=ok")
 """
@@ -127,6 +130,11 @@ class LoopTest(unittest.TestCase):
     def test_weak_checks(self):
         self.assertEqual(self.run_loop(FAKE_MODE="weak"), 1, self.out)
         self.assertIn("prove nothing", self.out)
+
+    def test_new_check_passing_before_is_kept_when_another_proves(self):
+        self.assertEqual(self.run_loop(FAKE_MODE="mixed"), 0, self.out)
+        self.assertIn("verdict PASS", self.out)
+        self.assertIn("1 new check(s) already pass on the before-tree", self.out)
 
     def test_verifier_without_rows(self):
         self.assertEqual(self.run_loop(VERIFY_CMD="true"), 1, self.out)

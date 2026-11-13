@@ -12,7 +12,7 @@ stories.yaml ─► pick first story not done
   done ──────────┤ VERIFY_CMD blind, before + after trees ─► CHECK rows
                  │   PASS ─► next story
                  │   FAIL ─► IMPL_CMD again with the failing rows (up to MAX_FAILS)
-                 │   WEAK ─► stop: the checks pass without the change, so prove nothing
+                 │   WEAK ─► stop: no check fails without the change, so none proves it
 ```
 
 The script holds no state of its own about progress. It reads `status:` and `baseline_revision:`
@@ -132,8 +132,11 @@ The script computes the verdict from the rows and does not take one from the ver
 | Rows | Verdict | What happens |
 |---|---|---|
 | any `after=FAIL` | FAIL | failing rows go back to `IMPL_CMD` as review findings |
-| no `kind=new` row, or a new row with `before=PASS` | WEAK | stop, exit 1 |
+| no `kind=new` row with `before=FAIL` | WEAK | stop, exit 1 |
 | otherwise | PASS | next story |
+
+A new row that passes on both trees proves nothing by itself; when another new row goes
+FAIL to PASS, the script logs it and counts it as kept.
 
 The before-tree is a detached `git worktree` at the story's `baseline_revision`, removed after
 each run. The verifier is told not to write; the script stops if either tree changed.
