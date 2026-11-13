@@ -25,6 +25,17 @@ from the story specs `bmad-build-auto` writes, so a stopped run resumes where it
 - at least one headless agent CLI: `claude`, `opencode`, `codex`, or anything that takes a prompt
   as its last argument
 
+## Inputs
+
+| Input | Written by | Used for |
+|---|---|---|
+| `<spec_folder>` argument | you | the folder that holds everything below |
+| `<spec_folder>/stories.yaml` | you | story order, checkpoints, extra build text; the verifier sees `title` and `description` |
+| `<spec_folder>/SPEC.md` (optional) | you | given to the verifier as the shared goal |
+| `<spec_folder>/stories/<id>-*.md` | `bmad-build-auto` | the loop reads `status:` and `baseline_revision:`; the verifier never sees these files |
+| env vars (`IMPL_CMD`, `PLAN_CMD`, `VERIFY_CMD`, `SKILL`, ...) | you | which agent and model runs each phase |
+| flags (`--dry-run`, `--approve`, `--verify`, ...) | you | mode for this run |
+
 ## Run it
 
 No install needed:
@@ -125,6 +136,17 @@ Outside the repo, so the working tree stays clean:
 The default `claude` command runs with `--permission-mode auto`, so agents edit files and run
 commands unattended. Start with `--dry-run`, use a throwaway branch, and set `--budget`. The
 script commits nothing itself and never pushes; `bmad-build-auto` commits each story locally.
+
+## Future enhancements
+
+- **Other spec formats.** Today the only input is BMAD's `stories.yaml`. Planned: read the task
+  lists from [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes and
+  [Spec Kit](https://github.com/github/spec-kit) features as stories.
+- **`REVIEW_CMD`.** Today one `IMPL_CMD` run implements, reviews and commits inside
+  `bmad-build-auto`. Planned: move the review into its own phase, so a different model or harness
+  reviews the diff, and send its findings back to `IMPL_CMD` the same way FAIL rows go back.
+  Still open: whether the skill can stop before its own review, or the review runs after the
+  commit.
 
 ## Tests
 
